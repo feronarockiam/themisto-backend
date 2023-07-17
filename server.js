@@ -1,6 +1,7 @@
 const express = require('express');
 const { MongoClient } = require('mongodb');
-
+const {sendEmail} = require('./schedule-mail');
+const { leadEmail } = require('./lead-mail');
 const app = express();
 const port = 3000;
 const url = 'mongodb+srv://themisto:12345@cluster0.wcoy5xl.mongodb.net/Test?retryWrites=true&w=majority';
@@ -217,7 +218,29 @@ app.post('/fetch/age', async (req, res) => {
 
 // ...
 
+app.post('/send-email', (req, res) => {
+  const { name, email } = req.body;
 
+  sendEmail(name, email)
+    .then(() => {
+      res.status(200).send('Email sent successfully!');
+    })
+    .catch((error) => {
+      console.log('Error occurred while sending email:', error.message);
+      res.status(500).send('Error occurred while sending email');
+    });
+});
+app.post('/leadsEmails', async (req, res) => {
+  const { message, email } = req.body;
+
+  try {
+    await Promise.all(email.map((recipient) => leadEmail(recipient, message)));
+    res.status(200).send('Emails sent successfully!');
+  } catch (error) {
+    console.log('Error occurred while sending emails:', error.message);
+    res.status(500).send('Error occurred while sending emails');
+  }
+});
 
 app.listen(port, () => {
   console.log(`API server listening on port ${port}`);
