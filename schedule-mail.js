@@ -9,14 +9,14 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-function sendEmail(name, email) {
+function sendEmail(name, email, date) {
     return new Promise((resolve, reject) => {
         // Compose the email message
         const mailOptions = {
             from: 'themisto.sales@gmail.com', // Sender address (your Gmail email address)
             to: email, // Recipient address
             subject: 'Hello from TEAM THEMISTO',
-            text: `Hi ${name},\n\nThanks for using Themisto bot! \nThe meeting is successfully fixed. Have a productive session!".\n\nRegards,\nYour Name`
+            text: `Hi ${name}! , I hope this email finds you well. I am delighted to inform you that the sales meeting you requested has been successfully scheduled on ${date} . have a productive session`
         };
 
         // Send the email

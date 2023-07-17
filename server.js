@@ -35,22 +35,11 @@ async function authenticateUser(username, password) {
   return user;
 }
 
-async function fetchLeadsBySocialMediaEngagement(socialMediaEngagement) {
+async function fetchLeadsByField(column, condition) {
   const db = client.db();
   const collection = db.collection('lead');
 
-  const query = { 'Social Media Engagement': { $eq: socialMediaEngagement } };
-
-  const leads = await collection.find(query).toArray();
-
-  return leads;
-}
-
-async function fetchLeadsByOrderFrequency(orderFreq) {
-  const db = client.db();
-  const collection = db.collection('lead');
-
-  const query = { 'Order Frequency': { $eq: orderFreq } };
+  const query = { [column]: condition };
 
   const leads = await collection.find(query).toArray();
 
@@ -79,31 +68,23 @@ app.post('/login', (req, res) => {
     });
 });
 
-app.post('/leadsSocial', (req, res) => {
-  const socialMediaEngagementLevel = req.body.socialMediaEngagement;
+app.post('/leads', async (req, res) => {
+  const { column, condition } = req.body;
 
-  fetchLeadsBySocialMediaEngagement(socialMediaEngagementLevel)
-    .then(leads => {
-      res.json(leads);
-    })
-    .catch(err => {
-      console.error('Error occurred:', err);
-      res.status(500).json({ error: 'An error occurred' });
-    });
+  try {
+    const leads = await fetchLeadsByField(column, condition);
+    res.json(leads);
+  } catch (err) {
+    console.error('Error occurred:', err);
+    res.status(500).json({ error: 'An error occurred' });
+  }
 });
 
-app.post('/leadsOrder', (req, res) => {
-  const orderFreq = req.body.orderFreq;
 
-  fetchLeadsByOrderFrequency(orderFreq)
-    .then(leads => {
-      res.json(leads);
-    })
-    .catch(err => {
-      console.error('Error occurred:', err);
-      res.status(500).json({ error: 'An error occurred' });
-    });
-});
+
+
+
+
 
 app.get('/schedule', (req, res) => {
   fetchSchedule()
@@ -118,52 +99,86 @@ app.get('/schedule', (req, res) => {
 
 // ...
 
+
 app.post('/api/fetch', async (req, res) => {
   console.log(req.body);
   const { condition, number, column } = req.body;
 
-  let operator;
-  switch (condition) {
-    case 'more':
-      operator = '$gt';
-      break;
-    case 'less':
-      operator = '$lt';
-      break;
-    case 'equal':
-      operator = '$eq';
-      break;
-    default:
-      return res.status(400).json({ error: 'Invalid condition' });
-  }
-
   const db = client.db();
   const collection = db.collection('lead');
 
-  // Add symbols to the value if the column is 'Average Order Value' or 'Cart Abandonment Rate'
-  let value;
-  if (column === 'Average Order Value') {
-    value = `$${number}`;
-  } else if (column === 'Cart Abandonment Rate') {
-    value = `${number}%`;
+  let query = {};
+
+  if (column) {
+    if (condition === 'more' || condition === 'less') {
+      let operator;
+      let sortOrder;
+      switch (condition) {
+        case 'more':
+          operator = '$gt'; // Greater than
+          sortOrder = -1; // Ascending order
+          break;
+        case 'less':
+          operator = '$lt'; // Less than
+          sortOrder = 1; // Descending order
+          break;
+        default:
+          // Invalid condition
+          res.status(400).json({ error: 'Invalid condition' });
+          return;
+      }
+
+      if (number !== '') {
+        let value;
+        if (column === 'Purchase History' || column === 'Click-through Rate' || column === 'Email Open Rate') {
+          value = parseFloat(number);
+        } else {
+          value = number;
+        }
+
+        query = {
+          [column]: {
+            [operator]: value,
+          },
+        };
+      }
+
+      try {
+        const documents = await collection.find(query).sort({ [column]: sortOrder }).toArray();
+        res.send(documents);
+      } catch (err) {
+        console.error('Error occurred:', err);
+        res.status(500).json({ error: 'Failed to fetch data' });
+      }
+    } else {
+      // Invalid condition
+      res.status(400).json({ error: 'Invalid condition' });
+    }
   } else {
-    value = number;
-  }
-
-  const query = {
-    [column]: {
-      [operator]: value,
-    },
-  };
-
-  try {
-    const documents = await collection.find(query).toArray();
-    res.send(documents);
-  } catch (err) {
-    console.error('Error occurred:', err);
-    res.status(500).json({ error: 'Failed to fetch data' });
+    // Column name is required
+    res.status(400).json({ error: 'Column name is required' });
   }
 });
+
+
+
+
+app.listen(4000, () => {
+  console.log('Server is listening on port 4000');
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // ...
 
@@ -219,9 +234,9 @@ app.post('/fetch/age', async (req, res) => {
 // ...
 
 app.post('/send-email', (req, res) => {
-  const { name, email } = req.body;
+  const { name, email, date } = req.body;
 
-  sendEmail(name, email)
+  sendEmail(name, email, date)
     .then(() => {
       res.status(200).send('Email sent successfully!');
     })
